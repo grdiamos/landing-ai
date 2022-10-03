@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Safely execute this bash script
+# e exit on first failure
+# x all executed commands are printed to the terminal
+# u unset variables are errors
+# a export all variables to the environment
+# E any trap on ERR is inherited by shell functions
+# -o pipefail | produces a failure code if any stage fails
+set -Eeuoxa pipefail
+
+# Get the directory of this script
+LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+$LOCAL_DIRECTORY/scripts/build.sh
+
+# Get the platform name
+PLATFORM=$($LOCAL_DIRECTORY/scripts/get_platform_name.sh)
+
+if [ "$PLATFORM" = "rocm" ]
+then
+    RUN_COMMAND="docker run --network=host --device=/dev/kfd --device=/dev/dri"
+    RUN_COMMAND+=" --group-add=video --ipc=host --cap-add=SYS_PTRACE "
+    RUN_COMMAND+="--security-opt seccomp=unconfined -v $HOME/dockerx:/dockerx"
+else
+    RUN_COMMAND="docker run"
+fi
+
+$RUN_COMMAND -it --rm landing-ai:latest $@
+
